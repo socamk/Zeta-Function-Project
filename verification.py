@@ -32,6 +32,10 @@ def inverse_rho(beta, gamma):
     return (beta/((beta**2) + (gamma**2)))
 
 
+def inverse_fourth_power(beta, gamma):
+    return (-6.0/(gamma**4))
+
+
 def full_sum(zeros, value):
     '''
     This function finds the total sum of terms given a list of zeros and
@@ -78,7 +82,7 @@ def verify_RH_list(zeros, heights, value, maximum, tail):
     for zero in zeros:      #loop through all the zeros given
         next_term = 2 * value(0.5, zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
-        if (sum + t0_contribution*2) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
+        while (sum + t0_contribution*2) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
             if tail:        #if including tail sum values, find the value by subtracting the current sum from the total sum
                 tail_sum = total_sum - sum
@@ -113,7 +117,7 @@ def verify_RH_interval(zeros, start, step, value, maximum, tail):
     for zero in zeros:      #loop through all the zeros given
         next_term = 2 * value(0.5, zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
-        if (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
+        while (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
             if tail:        #if including tail sum values, find the value by subtracting the current sum from the total sum
                 tail_sum = total_sum - sum
