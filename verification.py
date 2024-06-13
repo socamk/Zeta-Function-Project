@@ -138,7 +138,7 @@ def main():
     parser.add_argument('-i', '--interval', action='store', nargs=2, type=float, help='interval of heights to use when verifying the RH', metavar=('START', 'STEP'))
     parser.add_argument('-z', '--zeros', action='store', type=int, help='maximum number of zeros to use')
     parser.add_argument('-m', '--method', action='store', choices=[1], default=1, help='method to use for verification. Enter 1 for 1/rho, 2 for 1/rho^2, etc.', type=int)
-    parser.add_argument('-p', '--precision', action='store', choices=[2, 3, 4, 5, 6], nargs='+', help='precisions to use for the infinite sum', default=[2,3], type=int)
+    parser.add_argument('-p', '--precision', action='store', choices=[2, 3, 4, 5, 6, 7, 8], nargs='+', help='precisions to use for the infinite sum', default=[2,3], type=int)
     parser.add_argument('-t', '--tail', action='store_true', help='include the sum of the tail in the results')
     #process all of the options given in the command line arguments
     args = parser.parse_args()
@@ -158,7 +158,7 @@ def main():
     #the values of different methods to different precisions which can be used in the verification function
     #only one sublist because only one method exists at the moment
     #3 and 4 significant figure values are the same because they round tp the same amount
-    all_sums = [[0.024, 0.0231, 0.02310, 0.023096, 0.0230957]]
+    all_sums = [[0.024, 0.0231, 0.02310, 0.023096, 0.0230958, 0.02309571, 0.023095709]]
     #determine which sums are going to be used based on method and precision given
     sums = []
     for choice in args.precision:
