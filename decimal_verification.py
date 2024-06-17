@@ -14,8 +14,8 @@ def read_zeros(file_name):
     zeros = []                 #create an empty list to hold the zeros
     for line in file:           #loop through the lines of the file
         words = line.split()    #split the line on whitespace and add the strings to a list      
-        decimal = Decimal(words[1])
-        zeros.append(decimal)   #take the second element of the list, cast it to a float, and add it to the list
+        decimal = Decimal(words[1])     #turn the string into a decimal
+        zeros.append(decimal)   #add the decimal to the list
     return zeros        
 
 

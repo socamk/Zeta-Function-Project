@@ -14,8 +14,8 @@ def read_zeros(file_name):
     zeros = []                 #create an empty list to hold the zeros
     for line in file:           #loop through the lines of the file
         words = line.split()    #split the line on whitespace and add the strings to a list
-        zero = iv.mpf(words[1])      
-        zeros.append(zero)   #take the second element of the list, cast it to a float, and add it to the list
+        zero = iv.mpf(words[1])  #turn the string into an interval    
+        zeros.append(zero)   #add the interval to the list
     return zeros  
 
 def inverse_rho(beta, gamma):
