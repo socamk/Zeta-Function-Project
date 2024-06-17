@@ -29,7 +29,7 @@ def inverse_rho(beta, gamma):
 
     output: 1/(beta + gamma*i)
     '''
-    return (beta/((beta**2) + (gamma**2)))
+    return iv.mpf("2") * (beta/((beta**2) + (gamma**2)))
 
 def full_sum(zeros):
     '''
@@ -45,7 +45,7 @@ def full_sum(zeros):
     '''
     sum = iv.mpf("0.0")
     for zero in zeros:
-        term = iv.mpf("2") * inverse_rho(iv.mpf("0.5"), zero)
+        term = inverse_rho(iv.mpf("0.5"), zero)
         sum = sum + term
     return sum    
 
@@ -74,9 +74,9 @@ def verify_RH_list(zeros, heights, value, maximum, tail):
     if tail:        #if including tail sum values, find the value of the sum over all zeros given
         total_sum = full_sum(zeros)
     for zero in zeros:      #loop through all the zeros given
-        next_term = iv.mpf("2") * value(iv.mpf("0.5"), zero)        #find how much the current zero will add to the sum
+        next_term = value(iv.mpf("0.5"), zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
-        while (sum + t0_contribution*2) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
+        while (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
             if tail:        #if including tail sum values, find the value by subtracting the current sum from the total sum
                 tail_sum = total_sum - sum
@@ -102,22 +102,22 @@ def verify_RH_interval(zeros, start, step, value, maximum, tail):
     output: list containing heights where the RH could be confirmed and the number of zeros required
     '''
     index = 0
-    t0 = start      #set t0 to the given initial value
+    t0 = iv.mpf(start)      #set t0 to the given initial value
     t0_contribution = value(iv.mpf("1.0"), t0)       #find the amount that t0 adds to the sum
     sum = iv.mpf("0")         #initialize the sum
     results = []        #initialize an empty list to hold the results
     if tail:        #if including tail sum values, find the value of the sum over all zeros given
         total_sum = full_sum(zeros)
     for zero in zeros:      #loop through all the zeros given
-        next_term = iv.mpf("2.0") * value(iv.mpf("0.5"), zero)        #find how much the current zero will add to the sum
+        next_term = value(iv.mpf("0.5"), zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
-        while (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
+        while (sum + (t0_contribution)) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
             if tail:        #if including tail sum values, find the value by subtracting the current sum from the total sum
                 tail_sum = total_sum - sum
                 result.append(tail_sum)     #add the tail sum to the result list
             results.append(result)      #add all the results to the results list
-            t0 += step      #increment t0 by the amount given
+            t0 += iv.mpf(step)      #increment t0 by the amount given
             t0_contribution = value(iv.mpf("1.0"), t0)       #find contribution of the new height
         index += 1      #increment the index at the end of each loop
     return results      #when entire loop is finished, return the results

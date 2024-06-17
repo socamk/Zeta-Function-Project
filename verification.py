@@ -29,7 +29,7 @@ def inverse_rho(beta, gamma):
 
     output: 1/(beta + gamma*i)
     '''
-    return (beta/((beta**2) + (gamma**2)))
+    return 2 * (beta/((beta**2) + (gamma**2)))
 
 
 def inverse_fourth_power(beta, gamma):
@@ -50,7 +50,7 @@ def full_sum(zeros, value):
     '''
     sum = 0.0
     for zero in zeros:
-        term = 2 * value(0.5, zero)
+        term = value(0.5, zero)
         sum = sum + term
     return sum
         
@@ -80,9 +80,9 @@ def verify_RH_list(zeros, heights, value, maximum, tail):
     if tail:        #if including tail sum values, find the value of the sum over all zeros given
         total_sum = full_sum(zeros, value)
     for zero in zeros:      #loop through all the zeros given
-        next_term = 2 * value(0.5, zero)        #find how much the current zero will add to the sum
+        next_term = value(0.5, zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
-        while (sum + t0_contribution*2) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
+        while (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
             if tail:        #if including tail sum values, find the value by subtracting the current sum from the total sum
                 tail_sum = total_sum - sum
@@ -115,7 +115,7 @@ def verify_RH_interval(zeros, start, step, value, maximum, tail):
     if tail:        #if including tail sum values, find the value of the sum over all zeros given
         total_sum = full_sum(zeros, value)
     for zero in zeros:      #loop through all the zeros given
-        next_term = 2 * value(0.5, zero)        #find how much the current zero will add to the sum
+        next_term = value(0.5, zero)        #find how much the current zero will add to the sum
         sum = sum + next_term           #add the amount to the sum
         while (sum + t0_contribution) > maximum:       #see if the sum plus the contribution from t0 exceeds the maximum
             result = [t0, index + 1]     #if so, RH is verified, record height and number of zeros
@@ -138,7 +138,7 @@ def main():
     parser.add_argument('-i', '--interval', action='store', nargs=2, type=float, help='interval of heights to use when verifying the RH', metavar=('START', 'STEP'))
     parser.add_argument('-z', '--zeros', action='store', type=int, help='maximum number of zeros to use')
     parser.add_argument('-m', '--method', action='store', choices=[1], default=1, help='method to use for verification. Enter 1 for 1/rho, 2 for 1/rho^2, etc.', type=int)
-    parser.add_argument('-p', '--precision', action='store', choices=[2, 3, 4, 5, 6, 7, 8], nargs='+', help='precisions to use for the infinite sum', default=[2,3], type=int)
+    parser.add_argument('-p', '--precision', action='store', choices=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], nargs='+', help='precisions to use for the infinite sum', default=[2,3], type=int)
     parser.add_argument('-t', '--tail', action='store_true', help='include the sum of the tail in the results')
     #process all of the options given in the command line arguments
     args = parser.parse_args()
@@ -158,7 +158,7 @@ def main():
     #the values of different methods to different precisions which can be used in the verification function
     #only one sublist because only one method exists at the moment
     #3 and 4 significant figure values are the same because they round tp the same amount
-    all_sums = [[0.024, 0.0231, 0.02310, 0.023096, 0.0230958, 0.02309571, 0.023095709]]
+    all_sums = [[0.024, 0.0231, 0.02310, 0.023096, 0.0230958, 0.02309571, 0.023095709, 0.0230957090,0.02309570897, 0.023095708967, 0.0230957089662, 0.02309570896613, 0.023095708966122, 0.0230957089661211]]
     #determine which sums are going to be used based on method and precision given
     sums = []
     for choice in args.precision:
