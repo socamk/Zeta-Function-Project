@@ -1,1 +1,5 @@
 # Zeta-Function-Project
+
+This program is designed to verify the Riemann Hypothesis at different heights using different methods. There are three main programs: verifaction, decimal_verification,a and interval_verification. verification uses python's built-in floats to do the verification, and may contain floating-point and rounding errors. decimal_verification uses the built-in decimal library. There are no floating-point errors and the program always rounds towards zero, so rounding errors will overestimate the number of zeros necessary to verify the RH. interval_verification uses interval arithmetic from the mpmath library, so there are no floating point errors and rounding errors are contained in the intervals.
+
+verification takes about a second for each method/precision, decimal_verification takes about two seconds, and interval_verification takes about two minutes.
