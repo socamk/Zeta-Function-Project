@@ -122,10 +122,10 @@ def von_mangoldt_term(N, x, y, function, file_name):
                 sum += iv.mpf(line.strip())/(iv.mpf(i) ** (iv.mpf("1") - iv.mpf(x)))
         #multiply the sum by -1
         sum = iv.mpf("-1") * sum
-    #return sum
-    val = iv.mpf("0.3420698741323312766")
-    error = iv.mpf("1e-12")
-    return iv.mpf([val.a - error, val.b + error])
+    return sum
+    # val = iv.mpf("0.3420698741323312766")
+    # error = iv.mpf("1e-12")
+    # return iv.mpf([val.a - error, val.b + error])
 
 def error_term(N, x, function):
     '''
@@ -311,22 +311,24 @@ def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
     if float(x) >= 0:
         sys.exit("Innappropriate expansion point. Please choose a value of x < 0 and try again.")
     if float(y) < 0:
-        sys.exit("Innappropriate expansion point. Please choose a value of y > 0 and try again.")
+        sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
     mid = find_closest_index(zeros, y)
     print(mid)
     mid_index = mid[0]
     print(mid_index)
     length = len(zeros)
-    if m == 1:
+    if float(y) > 0:
         if delta > mid_index:
             sys.exit("Not enough zeros. Please use a smaller number of zeros or a higher expansion point and try again.")
         if delta + mid_index > length:
             sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
         zeros = zeros[mid_index - delta: mid_index + delta]
-    if m == 2:
+    elif float(y) == 0:
         if delta + mid_index > length:
             sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
         zeros = zeros[mid_index:mid_index + delta]
+    else:
+        sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
     print(len(zeros))
     upper_bound = find_sum(x, y, N, function, d, file).real
     base_sum = sum_over(zeros, x, y, function)
@@ -343,24 +345,16 @@ def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
         elif type == 2:
             val1 = ce_contribution(x, "1/2", i) * iv.mpf("1/2")
             val2 = ce_contribution(x, "0", i)
+        contribution = min(val1, val2)
         if function.value >= Function.QUADRATIC.value:
-            val1 = 2 * val1
-            val2 = 2 * val2
-        if val2.a < val1.a:
-            total = base_sum + val2.a
-            new_val = val2.a
-        elif val1.a < val2.a:
-            total = base_sum + val1.a
-            new_val = val1.a
-        elif val1.a == val2.a:
-            total = base_sum + val1.a
-            new_val = val1.a
-        else:
-            print("error")
+            contribution = contribution * 2
+        total = base_sum + contribution
+        new_val = contribution
         if total >= upper_bound:
             #print(i, True)
             i += 1
-            print(i)
+            if i % 1000 == 0:
+                print(i)
             last_val = new_val
         else:
             done = True
@@ -376,77 +370,12 @@ def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
             iv.dps = 40
     return i - 1
 
-# def verify_with_tail(zeros, x, y, N, delta, m, function, file, type, d=None):
-#     if float(x) >= 0:
-#         sys.exit("Innappropriate expansion point. Please choose a value of x < 0 and try again.")
-#     if float(y) < 0:
-#         sys.exit("Innappropriate expansion point. Please choose a value of y > 0 and try again.")
-#     mid = find_closest_index(zeros, y)
-#     print(mid)
-#     mid_index = mid[0]
-#     print(mid_index)
-#     length = len(zeros)
-#     if m == 1:
-#         if delta > mid_index:
-#             sys.exit("Not enough zeros. Please use a smaller number of zeros or a higher expansion point and try again.")
-#         if delta + mid_index > length:
-#             sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
-#         zeros = zeros[mid_index - delta: mid_index + delta]
-#     if m == 2:
-#         if delta + mid_index > length:
-#             sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
-#         zeros = zeros[mid_index:mid_index + delta]
-#     print(len(zeros))
-#     upper_bound = find_sum(x, y, N, function, d, file).real
-#     base_sum = sum_over(zeros, x, y, function)
-#     print(base_sum)
-#     tail = r(x, y, "501575.4")
-#     base_sum = base_sum + tail
-#     done = False
-#     i = 1
-#     last_val = None
-#     while not done:
-#         if type == 1:
-#             val1 = ce_contribution(x, "1/2", i)
-#             val2 = ce_contribution(x, "1", i)
-#         elif type == 2:
-#             val1 = ce_contribution(x, "1/2", i) * iv.mpf("1/2")
-#             val2 = ce_contribution(x, "0", i)
-#         if function.value >= Function.QUADRATIC.value:
-#             val1 = 2 * val1
-#             val2 = 2 * val2
-#         if val2.a < val1.a:
-#             total = base_sum + val2.a
-#             new_val = val2.a
-#         elif val1.a < val2.a:
-#             total = base_sum + val1.a
-#             new_val = val1.a
-#         elif val1.a == val2.a:
-#             total = base_sum + val1.a
-#             new_val = val1.a
-#         else:
-#             print("error")
-#         if total >= upper_bound:
-#             #print(i, True)
-#             i += .5
-#             if i % 1000 == 0:
-#                 print(i)
-#             last_val = new_val
-#         else:
-#             done = True
-#             #print("The Riemann Hypothesis has been verified between", float(y) - (i - 1), "and", float(y) + (i - 1))
-#             print("(" + x + "," + y + ")", end="\t")
-#             print(upper_bound, end="\t")
-#             print(base_sum, end="\t")
-#             print(last_val, end="\t")
-#             print(last_val + base_sum, end="\t")
-#             print(i - 1, end="\t")
-#             print()
-#     return i - .5
 
 
 def main():
     iv.dps = 40
-
+    zeros = read_hiary_zeros("1e28", "zeros/1e28.zeros.1000_10001001", 10000000)
+    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, 1, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
+    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, 1, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
 if __name__ == "__main__":
     main()
