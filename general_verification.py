@@ -50,10 +50,12 @@ def read_zeros(file_name, index):
     '''
     file = open(file_name)      #open the text file
     zeros = []                 #create an empty list to hold the zeros
+    error = iv.mpf("1e-8")
     for line in file:           #loop through the lines of the file
         words = line.split()    #split the line on whitespace and add the strings to a list
-        iv.dps = len(words[index]) - 3  #adjust the interval precision based on the precision of the input string
         zero = iv.mpf(words[index])  #turn the string into an interval    
+        if zero != iv.mpf("0"):
+            zero = iv.mpf([zero.a - error, zero.b + error])
         zeros.append(zero)   #add the interval to the list
     return zeros  
 
@@ -72,7 +74,7 @@ def find_closest_index(zeros, y):
     index = bisect.bisect_left(zeros, y)    #find index where y would be inserted, see python documentation for more information
     #check edge cases
     if index == 0:
-        if y in zeros[0]:
+        if y in zeros[0] and y > iv.mpf("0"):
             sys.exit("Invalid expansion point, please try again")
         return [0, zeros[0]]
     elif index == length:
@@ -88,7 +90,7 @@ def find_closest_index(zeros, y):
         return [index - 1, left_val]
 
 
-def von_mangoldt_term(N, x, y, function, file_name):
+def von_mangoldt_term(N, x, y, function, input):
     '''
     Internal function to calculate the part of the sum involving the Von Mangoldt function
     inputs:
@@ -102,30 +104,36 @@ def von_mangoldt_term(N, x, y, function, file_name):
 
         TODO - handle case where N is greater than available VM terms
     '''
-    file = open(file_name)  #open file
-    sum = iv.mpc("0")       #initiate sum
-    if function.value == Function.RIEMANN.value: 
-        for i in range(N):      #for loop determines how many terms will be used
-            line = file.readline()      #read a line from the file
-            if line.strip() != "1":     #if line does not equal 1, meaning log(line) != 0
-                sum += (iv.log(iv.mpf(line.strip())) / (iv.mpf(i + 1) ** (iv.mpc("1", "0") - iv.mpc(x, y))))    #use the line to calculate the next term and add it to the sum
-        sum = (iv.mpc("-1","0") * sum) - (iv.mpc("1","0") / iv.mpc(x, y)) #multiply sum by -1 and subtract 1/z
-    elif function.value == Function.RIEMANN.value:    #for functions other than zeta
-        #ensure a real expansion point is being used
-        if y != "0":
-            sys.exit("Invalid expansion point. Please choose a point on the real line and try again.")
-        #same as Riemann case, loop through the file
-        for i in range(1, N + 1):
-            line = file.readline()  #read a line from the file
-            #if the line is not zero, calculate the next term and add it to the sum
-            if line.strip() != "0":
-                sum += iv.mpf(line.strip())/(iv.mpf(i) ** (iv.mpf("1") - iv.mpf(x)))
-        #multiply the sum by -1
-        sum = iv.mpf("-1") * sum
-    return sum
-    # val = iv.mpf("0.3420698741323312766")
-    # error = iv.mpf("1e-12")
-    # return iv.mpf([val.a - error, val.b + error])
+    if (isinstance(input, str)):
+        file = open(input)  #open file
+        sum = iv.mpc("0")       #initiate sum
+        if function.value == Function.RIEMANN.value: 
+            for i in range(N):      #for loop determines how many terms will be used
+                line = file.readline()      #read a line from the file
+                if line.strip() != "1":     #if line does not equal 1, meaning log(line) != 0
+                    sum += (iv.log(iv.mpf(line.strip())) / (iv.mpf(i + 1) ** (iv.mpc("1", "0") - iv.mpc(x, y))))    #use the line to calculate the next term and add it to the sum
+            sum = (iv.mpc("-1","0") * sum) - (iv.mpc("1","0") / iv.mpc(x, y)) #multiply sum by -1 and subtract 1/z
+        elif function.value >= Function.RIEMANN.value:    #for functions other than zeta
+            #ensure a real expansion point is being used
+            if y != "0":
+                sys.exit("Invalid expansion point. Please choose a point on the real line and try again.")
+            #same as Riemann case, loop through the file
+            for i in range(1, N + 1):
+                line = file.readline()  #read a line from the file
+                #if the line is not zero, calculate the next term and add it to the sum
+                if line.strip() != "0":
+                    sum += iv.mpf(line.strip())/(iv.mpf(i) ** (iv.mpf("1") - iv.mpf(x)))
+            #multiply the sum by -1
+            sum = iv.mpf("-1") * sum
+        return sum
+    elif (isinstance(input, list)):
+        value = iv.mpf(input[0])
+        error = iv.mpf(input[1])
+        sum = iv.mpf([value.a - error.b, value.b + error.b])
+        return sum
+    else:
+        sys.exit("Invalid input, please try again.")
+
 
 def error_term(N, x, function):
     '''
@@ -152,6 +160,7 @@ def error_term(N, x, function):
 
 def digamma_term(x, y, function, d):
     '''
+    TODO - clean this up and fix docs
     Internal function to calculate the portion of the sum involving the digamma function
 
     inputs:
@@ -207,8 +216,8 @@ def digamma_term(x, y, function, d):
             m1 = "5.5"
             m2 = "6.5"
         if function.value == 4:
-            m1 = "0.25"
-            m2 = "0.75"
+            m1 = "0.5"
+            m2 = "1.5"
         value = iv.mpf("0")
         for val in [m1, m2]:
             process = subprocess.run(["./general_digamma", x, val], capture_output=True, encoding="utf-8")
@@ -296,14 +305,19 @@ def sum_over(zeros, x, y, function):
             sum += term
     elif function.value >= Function.QUADRATIC.value:
         for zero in zeros:
-            num = iv.mpf("1") - (iv.mpf("2") * x)
-            den = (iv.mpf("1/2") - x) ** iv.mpf("2")
-            den = den + (zero ** iv.mpf("2"))
-            term = num/den
-            sum += term
+            if zero == iv.mpf("0"):
+                num = beta - x
+                den = ((beta - x) ** iv.mpf("2"))
+                sum += num/den
+            else:
+                num = iv.mpf("1") - (iv.mpf("2") * x)
+                den = (iv.mpf("1/2") - x) ** iv.mpf("2")
+                den = den + (zero ** iv.mpf("2"))
+                term = num/den
+                sum += term
     return sum
 
-def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
+def verify(zeros, x, y, N, delta, function, file, type, tau=None, d=None):
     '''
     TODO - add method to include zeros by value instead of number
     TODO - make sure L-function inputs are correct
@@ -331,10 +345,13 @@ def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
         sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
     print(len(zeros))
     upper_bound = find_sum(x, y, N, function, d, file).real
+    print("found sum =", upper_bound)
     base_sum = sum_over(zeros, x, y, function)
+    print("sum over zeros =", base_sum)
     if tau != None:
-        tail = r(x, y, tau)
-        base_sum = base_sum + tail
+        lower_tail = r(x, y, tau)
+        print("tail =", lower_tail)
+        base_sum = base_sum + lower_tail
     done = False
     i = 1
     last_val = None
@@ -374,8 +391,72 @@ def verify(zeros, x, y, N, delta, m, function, file, type, tau=None, d=None):
 
 def main():
     iv.dps = 40
+
+    
+    #TEST CODE PLEASE IGNORE
+    '''
+    print(find_sum("-1", "0", 100000, Function.ELLIPTIC, None, ["0.547934606487896699144260368219", "1e-20"]))
+    e_zeros = read_zeros("zeros/Elliptic_zeros.txt", 0)
+    print(sum_over(e_zeros, "-1", "0", Function.ELLIPTIC))
+    verify(e_zeros, "-1", "0", 100000, 100, Function.ELLIPTIC, ["0.547934606487896699144260368219", "1e-20"], 1)
+    print(sum_over(e_zeros, "-1", "0", Function.ELLIPTIC) + (2 * ce_contribution("-1", "1", "10")))
+    '''
+
+
+    '''
+    d_zeros = read_zeros("zeros/10^6_zeros.txt", 1)
+    verify(d_zeros, "-1", "0", 100000, 5000, Function.QUADRATIC, "Lambda_Values/Lambda_Quadratic_-1159523.txt", 1, None, "-1159523")
+
+    print(find_sum("-1", "0", 100000, Function.QUADRATIC, "-1159523", "Lambda_Values/Lambda_Quadratic_-1159523.txt"))
+    print(sum_over(d_zeros, "-1", "0", Function.QUADRATIC))
+    '''
+    
+    
+    
+    #zeros = read_hiary_zeros("1e28", "zeros/1e28.zeros.1000_10001001", 10000000)
+    #y = iv.mpf("10000000000000000000000501675.8")
+   # verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
+    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
+
+    '''
+    print("R verification")
+    r_zeros = read_zeros("zeros/Ramanujan_zeros.txt", 0)
+    verify(r_zeros, "-1", "0", 100000, 20000, Function.RAMANUJAN, ["0.058326197419819564458801483366", "1e-20"], 1)
+    print()
+    print(find_sum("-1", "0", 100000, Function.RAMANUJAN, None, ["0.058326197419819564458801483366", "1e-20"]))
+    sum = sum_over(r_zeros, "-1", "0", Function.RAMANUJAN)
+    print("C =", sum)
+    x = "-1"
+    i = "84"
+    val1 = 2 *min (ce_contribution(x, "1/2", i), ce_contribution(x, "1", i))
+    print(sum + val1)
+    i = "85"
+    val2 = 2 * min (ce_contribution(x, "1/2", i), ce_contribution(x, "1", i))
+    print(sum + val2)
+    ''' 
+    
+    
+    '''
     zeros = read_hiary_zeros("1e28", "zeros/1e28.zeros.1000_10001001", 10000000)
-    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, 1, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
-    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, 1, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
+    
+    total = iv.mpf(["31.4180626270347520984646803475482274464888561", "31.4180626270348458180158187325621374281859243"])
+    sum = (sum_over(zeros, "-2", "10000000000000000000000501675.8", Function.RIEMANN))
+    print(sum)
+    tail = R("-2", "10000000000000000000000501675.8", "501575.4")
+    print("R =", tail)
+    print(sum + tail)
+    print((sum + tail).b < total.a)
+    print()
+    val = zeros.pop(5200000)
+    print("removed", val)
+    sum = (sum_over(zeros, "-2", "10000000000000000000000501675.8", Function.RIEMANN))
+    print("new sum =", sum)
+    print(sum + tail)
+    print((sum + tail).b < total.a)
+    
+    '''
+    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
+    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
+    
 if __name__ == "__main__":
     main()
