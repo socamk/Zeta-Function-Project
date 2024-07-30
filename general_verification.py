@@ -1,4 +1,4 @@
-import subprocess, bisect, sys
+import subprocess, bisect, sys, argparse
 from mpmath import iv, nprint, nstr
 from enum import Enum
 from tail_approximation import r, R
@@ -317,7 +317,7 @@ def sum_over(zeros, x, y, function):
                 sum += term
     return sum
 
-def verify(zeros, x, y, N, delta, function, file, type, tau=None, d=None):
+def verify(zeros, x, y, N, Tau, function, file, type, tail=None, d=None):
     '''
     TODO - add method to include zeros by value instead of number
     TODO - make sure L-function inputs are correct
@@ -326,30 +326,24 @@ def verify(zeros, x, y, N, delta, function, file, type, tau=None, d=None):
         sys.exit("Innappropriate expansion point. Please choose a value of x < 0 and try again.")
     if float(y) < 0:
         sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
-    mid = find_closest_index(zeros, y)
-    print(mid)
-    mid_index = mid[0]
-    print(mid_index)
-    length = len(zeros)
-    if float(y) > 0:
-        if delta > mid_index:
-            sys.exit("Not enough zeros. Please use a smaller number of zeros or a higher expansion point and try again.")
-        if delta + mid_index > length:
-            sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
-        zeros = zeros[mid_index - delta: mid_index + delta]
-    elif float(y) == 0:
-        if delta + mid_index > length:
-            sys.exit("Not enough zeros. Please use a smaller number of zeros or a lower expansion point and try again.")
-        zeros = zeros[mid_index:mid_index + delta]
-    else:
-        sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
+    upper_val = iv.mpf(y) + iv.mpf(Tau)
+    lower_val = iv.mpf(y) - iv.mpf(Tau)
+    first = find_closest_index(zeros, lower_val)
+    last = find_closest_index(zeros, upper_val)
+    print(first)
+    print(last)
+    # if first[0] == 0 and first[1] > iv.mpf(y) - iv.mpf(Tau):
+    #     zeros = zeros[:last[0] + 1]
+    # else:
+    #     zeros = zeros[first[0] + 1:last[0] + 1]
     print(len(zeros))
+    print(zeros[0], zeros[-1])
     upper_bound = find_sum(x, y, N, function, d, file).real
     print("found sum =", upper_bound)
     base_sum = sum_over(zeros, x, y, function)
     print("sum over zeros =", base_sum)
-    if tau != None:
-        lower_tail = r(x, y, tau)
+    if tail != None:
+        lower_tail = r(x, y, Tau)
         print("tail =", lower_tail)
         base_sum = base_sum + lower_tail
     done = False
@@ -391,9 +385,18 @@ def verify(zeros, x, y, N, delta, function, file, type, tau=None, d=None):
 
 def main():
     iv.dps = 40
-
-    
+    parser = argparse.ArgumentParser(description="Program to verify the Riemann Hypothesis or completeness within a subsection of a given list of zeros. Currently works with the Riemann zeta function, real Dirichlet functions, the Ramanujan tau function, and elliptic curves.")
+    parser.add_argument("-t", "--tail", action='store_true', help='include upper and lower bounds on the tail of the sum in the verification. Currently only works for the Riemann zeta function')
+    parser.add_argument("-R", "--Riemann", action='store_true', help='verify the Riemann zeta function')
+    parser.add_argument("-D", "--Dirichlet", action='store', nargs=1, type=int, help='verify a real Dirichlet function', metavar="CONDUCTOR")
+    parser.add_argument("-T", "--Ramanujan", action='store_true', help='verify the Ramanujan tau function')
+    parser.add_argument("-p", "--point", nargs=2, help="Point where the expansion is centered, default is -1", default=["-1", "0"], metavar=("REAL", "IMAGINARY"))
+    args = parser.parse_args()
     #TEST CODE PLEASE IGNORE
+
+
+    zeros = read_hiary_zeros("1e28","zeros/1e28.zeros.1000_10001001", 10000000)
+    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, "501575.4", Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, True)
     '''
     print(find_sum("-1", "0", 100000, Function.ELLIPTIC, None, ["0.547934606487896699144260368219", "1e-20"]))
     e_zeros = read_zeros("zeros/Elliptic_zeros.txt", 0)
