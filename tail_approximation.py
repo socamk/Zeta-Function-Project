@@ -14,7 +14,7 @@ def e1(y, tau):
     tau = iv.mpf(tau)
     c = y/iv.mpf("2")
     val = iv.mpf("1")/(c ** iv.mpf("2"))
-    val = val + iv.mpf("1")/((y - tau) ** iv.mpf("2"))
+    val = val + iv.mpf("1")/((y + tau) ** iv.mpf("2"))
     val = val * iv.mpf("0.006") * iv.mpf("4") * (iv.pi ** iv.mpf("2"))
     return val
 
@@ -41,8 +41,8 @@ def e4(x, y, tau):
     y = iv.mpf(y)
     c = y/iv.mpf("2")
     tau = iv.mpf(tau)
-    val = (iv.mpf("1") - (iv.mpf("2") * x))/(tau ** iv.mpf("2"))
-    val = val + ((iv.mpf("1") - (iv.mpf("2") * x))/((y -c) ** iv.mpf("2")))
+    val = (iv.mpf("2") - (iv.mpf("4") * x))/(tau ** iv.mpf("2"))
+    val = val + ((iv.mpf("2") - (iv.mpf("4") * x))/((y -c) ** iv.mpf("2")))
     input = iv.mpf("2") * y
     val = val * l(input)
     return val
