@@ -275,14 +275,10 @@ def find_sum(x, y, N, function, d, file_name="Lambda_Values/Riemann_Lambda.txt")
         log_term = log_term = (iv.mpf("1/2") * iv.log(iv.mpf("37"))) - (iv.log(iv.pi))
     #find the term of the sum involving the digamma function
     dg_term = digamma_term(x, y, function, d)
-    print("dg =", dg_term)
     #find the term of the sum involving the sum over the primes
     vm_term = von_mangoldt_term(N, x, y, function, file_name)
-    print("vm =", vm_term)
     #find the truncation error from the sum over the primes
     e_term = error_term(N, x, function)
-    print("e =", e_term)
-    print("log =", log_term)
     #find the upper and lower bounds of the sum
     upper = log_term + dg_term + vm_term + e_term
     lower = log_term + dg_term + vm_term - e_term
