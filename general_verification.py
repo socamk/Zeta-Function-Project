@@ -9,9 +9,16 @@ class Function(Enum):
     Enum to keep track of the different L-functions that can be verified
     '''
     RIEMANN = 1
-    QUADRATIC = 2
+    REAL_DIRICHLET = 2
     RAMANUJAN = 3
     ELLIPTIC = 4
+
+class Verification(Enum):
+    '''
+    Enum to keep track of the different types of verification
+    '''
+    RIEMANN_HYPOTHESIS = 1
+    COMPLETENESS = 2
 
 
 
@@ -173,34 +180,41 @@ def digamma_term(x, y, function, d):
 
     '''
     #use command line to run compiled C program with two arguments and pipe stdout to a text file
-    if function.value == 1:
+    if function.value == Function.RIEMANN.value:
+        #run program using FLINT for calculations
         process = subprocess.run(["./riemann_digamma", x, y], capture_output=True, encoding="utf-8") 
-    elif function.value == 2:
-        if iv.mpf(d) > iv.mpf("0"):
-            m = "0"
-        else:
-            m = "1"
-        process = subprocess.run(["./general_digamma", x, m], capture_output=True, encoding="utf-8") 
-    #get the output of the C program aptured by the Python subprocess
-    if function.value == 1:
+        #save output of the program
         line = process.stdout
         #split the line on whitespace and collect in a vector
         words = line.split("\n")
-        values = []
+        values = []     #empty list to hold results
+        #processing FLINT output into a string that mpmath can understand
         for word in words:
             nums = word.split(" +/- ")
             for i in range(len(nums)):
                 nums[i] = nums[i].strip("[]")
+            #if FLINT output has an error term, construct an interval using those error bounds
             if len(nums) == 2:
                 base = iv.mpf(nums[0])
                 error = iv.mpf(nums[1])
                 upper = base.b + error.b
                 lower = base.a - error.b
-                values.append(iv.mpf([lower, upper]))
+                values.append(iv.mpf([lower, upper])) #add to result list
+            #if FLINT output has no error (usually if result is exactly zero), construct interval from the output value
             elif len(nums) == 1:
-                values.append(iv.mpf(nums[0]))
+                values.append(iv.mpf(nums[0]))  #add to result list
+        #result list should have two entries representing the real and imaginary parts of the calculation
+        #create a complex interval in mpmath using those entries
         value = iv.mpc(values[0], values[1])
-    elif function.value == 2:
+    elif function.value == Function.REAL_DIRICHLET.value:
+        #set the value of m based on the sign of the conductor
+        if iv.mpf(d) > iv.mpf("0"):
+            m = "0"
+        else:
+            m = "1"
+        #run program using FLINT for calculations
+        process = subprocess.run(["./general_digamma", x, m], capture_output=True, encoding="utf-8") 
+        #process output of FLINT program back into mpmath interval
         line = process.stdout
         word = line.strip()
         nums = word.split(" +/- ")
@@ -211,14 +225,16 @@ def digamma_term(x, y, function, d):
         upper = base.b + error.b
         lower = base.a - error.b
         value = iv.mpf([lower, upper])
-    elif function.value >= 3:
-        if function.value == 3:
+    elif function.value >= Function.RAMANUJAN.value:
+        #set values of m depending on the function
+        if function.value == Function.RAMANUJAN.value:
             m1 = "5.5"
             m2 = "6.5"
-        if function.value == 4:
+        if function.value == Function.ELLIPTIC.value:
             m1 = "0.5"
             m2 = "1.5"
-        value = iv.mpf("0")
+        value = iv.mpf("0")     #initialize the sum
+        #for each m, find the digamma value using FLINT and add to the sum
         for val in [m1, m2]:
             process = subprocess.run(["./general_digamma", x, val], capture_output=True, encoding="utf-8")
             line = process.stdout 
@@ -231,6 +247,7 @@ def digamma_term(x, y, function, d):
             upper = base.b + error.b
             lower = base.a - error.b
             value += iv.mpf([lower, upper])
+    #divide the final term by 2 and return it
     return iv.mpf("1/2") * value
 
 def find_sum(x, y, N, function, d, file_name="Lambda_Values/Riemann_Lambda.txt"):
@@ -243,28 +260,33 @@ def find_sum(x, y, N, function, d, file_name="Lambda_Values/Riemann_Lambda.txt")
         N - number of terms to use to calculate the sum over Von Mangoldt values
         function - enum representing the type of function being evaluated
         d - fundamental discriminant, passed as None if not applicable
-        file name - name of a file containing e^Lambda(n), defaults to existing file but 
-        could also use a user-specified file
+        file name - name of a file containing e^Lambda(n) for zeta and Lambda(n) for other functions
 
-    output: interval containing the sum of 1/(rho - z) for all rho and z = x + iy
+    output: interval containing the sum of 1/(rho - z) for all rho, using z = x + iy
     '''
-    if function.value == 1:
+    #find the logarithmic term of the sum based on the chosen function
+    if function.value == Function.RIEMANN.value:
         log_term = iv.mpf("-1/2") * iv.log(iv.pi)
-    elif function.value == 2:
+    elif function.value == Function.REAL_DIRICHLET.value:
         log_term = (iv.mpf("1/2") * iv.log(abs(int(d)))) - (iv.mpf("1/2") * iv.log(iv.pi))
-    elif function.value == 3:
+    elif function.value == Function.RAMANUJAN.value:
         log_term = log_term = (iv.mpf("1/2") * iv.log(iv.mpf("1"))) - (iv.log(iv.pi))
-    elif function.value == 4:
+    elif function.value == Function.ELLIPTIC.value:
         log_term = log_term = (iv.mpf("1/2") * iv.log(iv.mpf("37"))) - (iv.log(iv.pi))
+    #find the term of the sum involving the digamma function
     dg_term = digamma_term(x, y, function, d)
     print("dg =", dg_term)
+    #find the term of the sum involving the sum over the primes
     vm_term = von_mangoldt_term(N, x, y, function, file_name)
     print("vm =", vm_term)
+    #find the truncation error from the sum over the primes
     e_term = error_term(N, x, function)
     print("e =", e_term)
     print("log =", log_term)
+    #find the upper and lower bounds of the sum
     upper = log_term + dg_term + vm_term + e_term
     lower = log_term + dg_term + vm_term - e_term
+    #return interval using those bounds
     return iv.mpf([lower.a, upper.b])
 
 
@@ -289,13 +311,16 @@ def sum_over(zeros, x, y, function):
 
     input:
         zeros - set of intervals containing zeros of the zeta function
-        point - imaginary point to do the expansion at
+        x - real part of the expansion point
+        y - imaginary part of the expansion point
+        function - enum representing the function being evaluated
     output: interval representing the bounds of the sum contribution of the given zeros
     '''
-    sum = iv.mpf("0")
-    x = iv.mpf(x)
+    sum = iv.mpf("0")   #initialize sum
+    x = iv.mpf(x)       #turn x and y into intervalz
     y = iv.mpf(y)
-    beta = iv.mpf("1/2")
+    beta = iv.mpf("1/2")    #set the interval for beta
+    #if the function is zeta, each zero contributes (1/2 - x)/[(1/2 - x)^2 + (gamma - y)^2]
     if function.value == Function.RIEMANN.value:
         for zero in zeros:
             num = beta - x
@@ -303,7 +328,8 @@ def sum_over(zeros, x, y, function):
             den = den + ((zero - y) ** 2)
             term = num/den
             sum += term
-    elif function.value >= Function.QUADRATIC.value:
+    #use different sum for a general L-function
+    elif function.value >= Function.REAL_DIRICHLET.value:
         for zero in zeros:
             if zero == iv.mpf("0"):
                 num = beta - x
@@ -317,68 +343,54 @@ def sum_over(zeros, x, y, function):
                 sum += term
     return sum
 
-def verify(zeros, x, y, N, Tau, function, file, type, tail=None, d=None):
+def verify(zeros, x, y, N, Tau, function, file, verification, tail=False, d=None):
     '''
-    TODO - add method to include zeros by value instead of number
-    TODO - make sure L-function inputs are correct
+    Function to verify a general L-function
     '''
     if float(x) >= 0:
         sys.exit("Innappropriate expansion point. Please choose a value of x < 0 and try again.")
     if float(y) < 0:
         sys.exit("Innappropriate expansion point. Please choose a value of y >= 0 and try again.")
+    #find list of zeros inside the range given by tau
     upper_val = iv.mpf(y) + iv.mpf(Tau)
     lower_val = iv.mpf(y) - iv.mpf(Tau)
     first = find_closest_index(zeros, lower_val)
     last = find_closest_index(zeros, upper_val)
-    print(first)
-    print(last)
-    # if first[0] == 0 and first[1] > iv.mpf(y) - iv.mpf(Tau):
-    #     zeros = zeros[:last[0] + 1]
-    # else:
-    #     zeros = zeros[first[0] + 1:last[0] + 1]
-    print(len(zeros))
-    print(zeros[0], zeros[-1])
+    if first[0] == 0 and first[1] > iv.mpf(y) - iv.mpf(Tau):
+        zeros = zeros[:last[0] + 1]
+    else:
+        zeros = zeros[first[0] + 1:last[0] + 1]
     upper_bound = find_sum(x, y, N, function, d, file).real
-    print("found sum =", upper_bound)
     base_sum = sum_over(zeros, x, y, function)
-    print("sum over zeros =", base_sum)
-    if tail != None:
+    if verification == Verification.COMPLETENESS and tail == True:
+        upper_tail_bound = R(x, y, Tau)
+        total = base_sum + upper_tail_bound
+        if total.b < upper_bound.a:
+            print("The list given is incomplete")
+            return
+    #find bound on tail contribution if applicable
+    if tail and function == Function.RIEMANN:
         lower_tail = r(x, y, Tau)
-        print("tail =", lower_tail)
         base_sum = base_sum + lower_tail
+    #check counterexamples and loop until no contradiction is reached
     done = False
     i = 1
-    last_val = None
     while not done:
-        if type == 1:
+        if verification == Verification.RIEMANN_HYPOTHESIS:
             val1 = ce_contribution(x, "1/2", i)
             val2 = ce_contribution(x, "1", i)
-        elif type == 2:
+        elif verification == Verification.COMPLETENESS:
             val1 = ce_contribution(x, "1/2", i) * iv.mpf("1/2")
             val2 = ce_contribution(x, "0", i)
         contribution = min(val1, val2)
-        if function.value >= Function.QUADRATIC.value:
+        if function.value >= Function.REAL_DIRICHLET.value:
             contribution = contribution * 2
         total = base_sum + contribution
-        new_val = contribution
         if total >= upper_bound:
-            #print(i, True)
             i += 1
-            if i % 1000 == 0:
-                print(i)
-            last_val = new_val
         else:
             done = True
-            #print("The Riemann Hypothesis has been verified between", float(y) - (i - 1), "and", float(y) + (i - 1))
-            iv.dps = 10
-            print("(" + x + "," + y + ")", end="\t")
-            print(upper_bound, end="\t")
-            print(base_sum, end="\t")
-            print(last_val, end="\t")
-            print(last_val + base_sum, end="\t")
-            print(i - 1, end="\t")
-            print()
-            iv.dps = 40
+    #return largest integer that causes a contradiction
     return i - 1
 
 
@@ -386,80 +398,43 @@ def verify(zeros, x, y, N, Tau, function, file, type, tail=None, d=None):
 def main():
     iv.dps = 40
     parser = argparse.ArgumentParser(description="Program to verify the Riemann Hypothesis or completeness within a subsection of a given list of zeros. Currently works with the Riemann zeta function, real Dirichlet functions, the Ramanujan tau function, and elliptic curves.")
-    parser.add_argument("-t", "--tail", action='store_true', help='include upper and lower bounds on the tail of the sum in the verification. Currently only works for the Riemann zeta function')
-    parser.add_argument("-R", "--Riemann", action='store_true', help='verify the Riemann zeta function')
-    parser.add_argument("-D", "--Dirichlet", action='store', nargs=1, type=int, help='verify a real Dirichlet function', metavar="CONDUCTOR")
-    parser.add_argument("-T", "--Ramanujan", action='store_true', help='verify the Ramanujan tau function')
+    parser.add_argument("-R", "--Riemann", action='store', nargs=1, help='verify the Riemann zeta function around a point z = x + iy using zeros in a range of [y - τ, y + τ]', metavar="TAU")
+    parser.add_argument("-D", "--Dirichlet", action='store', nargs=2, type=int, help='verify a real Dirichlet function around a point z = x + iy using zeros in a range of [y - τ, y + τ]', metavar=("CONDUCTOR", "TAU"))
+    parser.add_argument("-T", "--Ramanujan", action='store', help='verify the Ramanujan tau function around a point z = x + iy using zeros in a range of [y - τ, y + τ]', metavar="TAU")
     parser.add_argument("-p", "--point", nargs=2, help="Point where the expansion is centered, default is -1", default=["-1", "0"], metavar=("REAL", "IMAGINARY"))
+    parser.add_argument("-l", "--Lambda", nargs=2, help="File containing e^Λ(n) for zeta or Λ(n) for other functions and number of terms to use for the sum over primes", metavar=("FILENAME", "TERMS"))
+    parser.add_argument("-H", "--H_zeros", nargs=3, help="use file of zero ordinates created by Dr. Ghaith Hiary", metavar=("FILENAME", "SHIFT", "LINES"))
+    parser.add_argument("-z", "--zeros", nargs=2, help="use file of zero ordinates", metavar=("FILE_NAME", "COLUMN"))
+    parser.add_argument("-t", "--tail", action='store_true', help='include upper and lower bounds on the tail of the sum in the verification. Currently only works for the Riemann zeta function')
+    parser.add_argument("-c", "--completeness", action="store_true", help="verify completeness of a list of zeros instead of the Riemann Hypothesis")
     args = parser.parse_args()
-    #TEST CODE PLEASE IGNORE
-
-
-    zeros = read_hiary_zeros("1e28","zeros/1e28.zeros.1000_10001001", 10000000)
-    verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, "501575.4", Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, True)
-    '''
-    print(find_sum("-1", "0", 100000, Function.ELLIPTIC, None, ["0.547934606487896699144260368219", "1e-20"]))
-    e_zeros = read_zeros("zeros/Elliptic_zeros.txt", 0)
-    print(sum_over(e_zeros, "-1", "0", Function.ELLIPTIC))
-    verify(e_zeros, "-1", "0", 100000, 100, Function.ELLIPTIC, ["0.547934606487896699144260368219", "1e-20"], 1)
-    print(sum_over(e_zeros, "-1", "0", Function.ELLIPTIC) + (2 * ce_contribution("-1", "1", "10")))
-    '''
-
-
-    '''
-    d_zeros = read_zeros("zeros/10^6_zeros.txt", 1)
-    verify(d_zeros, "-1", "0", 100000, 5000, Function.QUADRATIC, "Lambda_Values/Lambda_Quadratic_-1159523.txt", 1, None, "-1159523")
-
-    print(find_sum("-1", "0", 100000, Function.QUADRATIC, "-1159523", "Lambda_Values/Lambda_Quadratic_-1159523.txt"))
-    print(sum_over(d_zeros, "-1", "0", Function.QUADRATIC))
-    '''
-    
-    
-    
-    #zeros = read_hiary_zeros("1e28", "zeros/1e28.zeros.1000_10001001", 10000000)
-    #y = iv.mpf("10000000000000000000000501675.8")
-   # verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
-    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
-
-    '''
-    print("R verification")
-    r_zeros = read_zeros("zeros/Ramanujan_zeros.txt", 0)
-    verify(r_zeros, "-1", "0", 100000, 20000, Function.RAMANUJAN, ["0.058326197419819564458801483366", "1e-20"], 1)
-    print()
-    print(find_sum("-1", "0", 100000, Function.RAMANUJAN, None, ["0.058326197419819564458801483366", "1e-20"]))
-    sum = sum_over(r_zeros, "-1", "0", Function.RAMANUJAN)
-    print("C =", sum)
-    x = "-1"
-    i = "84"
-    val1 = 2 *min (ce_contribution(x, "1/2", i), ce_contribution(x, "1", i))
-    print(sum + val1)
-    i = "85"
-    val2 = 2 * min (ce_contribution(x, "1/2", i), ce_contribution(x, "1", i))
-    print(sum + val2)
-    ''' 
-    
-    
-    '''
-    zeros = read_hiary_zeros("1e28", "zeros/1e28.zeros.1000_10001001", 10000000)
-    
-    total = iv.mpf(["31.4180626270347520984646803475482274464888561", "31.4180626270348458180158187325621374281859243"])
-    sum = (sum_over(zeros, "-2", "10000000000000000000000501675.8", Function.RIEMANN))
-    print(sum)
-    tail = R("-2", "10000000000000000000000501675.8", "501575.4")
-    print("R =", tail)
-    print(sum + tail)
-    print((sum + tail).b < total.a)
-    print()
-    val = zeros.pop(5200000)
-    print("removed", val)
-    sum = (sum_over(zeros, "-2", "10000000000000000000000501675.8", Function.RIEMANN))
-    print("new sum =", sum)
-    print(sum + tail)
-    print((sum + tail).b < total.a)
-    
-    '''
-    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 1, "501575.4")
-    #verify(zeros, "-2", "10000000000000000000000501675.8", 10000000, 4999999, Function.RIEMANN, "Lambda_Values/Riemann_Lambda.txt", 2, "501575.4")
-    
+    if args.Lambda == None:
+        sys.exit("No Lambda values provided, please try again.")
+    if args.zeros != None and args.H_zeros != None:
+        sys.exit("Too many zero files. Please try again and provide one file with all zero ordinates.")
+    elif args.zeros == None and args.H_zeros == None:
+        sys.exit("No files with zero ordinates provided, please try again")
+    elif args.zeros != None:
+        zeros = read_zeros(args.zeros[0], args.zeros[1])
+    elif args.H_zeros != None:
+        zeros = read_hiary_zeros(args.H_zeros[1], args.H_zeros[0], int(args.H_zeros[2]))
+    count = 0
+    for arg in [args.Riemann, args.Ramanujan, args.Dirichlet]:
+        if arg != None:
+            count += 1
+    if count == 0:
+        sys.exit("No function provide, please try again.")
+    elif count > 1:
+        sys.exit("Multiple functions provided, please try again.")
+    verification = Verification.RIEMANN_HYPOTHESIS
+    if args.completeness == True:
+        verification = Verification.COMPLETENESS
+    if args.Riemann != None:
+        val = verify(zeros, args.point[0], args.point[1], int(args.Lambda[1]), args.Riemann[0], Function.RIEMANN, args.Lambda[0], verification, args.tail)
+    elif args.Dirichlet != None:
+        val = verify(zeros, args.point[0], args.point[1], int(args.Lambda[1]), args.Dirichlet[1], Function.REAL_DIRICHLET, args.Lambda[0], verification, False, args.Dirichlet[0])
+    elif args.Ramanujan != None:
+        val = verify(zeros, args.point[0], args.point[1], int(args.Lambda[1]), args.Ramanujan[0], Function.RAMANUJAN, args.Lambda[0], verification)
+    print("The list has been verified to a distance of", val)
 if __name__ == "__main__":
     main()
